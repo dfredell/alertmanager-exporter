@@ -1,13 +1,12 @@
-FROM python:3.7.1
+FROM python:3-alpine
 
-RUN pip3 install prometheus_client
-RUN pip3 install pyaml
+# Create a group and user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Tell docker that all future commands should run as the appuser user
+USER appuser
 
-COPY exporter/ /opt/exporter/
-RUN chmod 755 /opt/exporter/exporter.py
+RUN pip3 install prometheus_client pyaml
 
-RUN useradd -m -s /bin/bash my_user
+COPY exporter/ ~
 
-USER my_user
-
-ENTRYPOINT ["/usr/local/bin/python", "/opt/exporter/exporter.py"]
+ENTRYPOINT ["/usr/local/bin/python", "~/exporter.py"]

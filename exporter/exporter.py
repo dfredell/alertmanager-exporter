@@ -13,6 +13,8 @@ import socket
 import prometheus_client
 import prometheus_client.core
 
+from operator import methodcaller
+
 # add prometheus decorators
 REQUEST_TIME = prometheus_client.Summary(
     "request_processing_seconds", "Time spent processing request"
@@ -35,8 +37,11 @@ def get_config():
     conf["url"] = "http://alertmanager:9093/api/v1/alerts"
     conf["log_level"] = "INFO"
     conf["header_user_agent"] = ""
+    # extra headers when sending requests to alertmanager in the form of
+    # key=value,key2=value2
+    conf["headers"] = ""
     conf["test"] = ""
-    env_text_options = ["url", "log_level", "header_user_agent", "test"]
+    env_text_options = ["url", "log_level", "header_user_agent", "test", "headers"]
     for opt in env_text_options:
         opt_val = os.environ.get(opt.upper())
         if opt_val:
@@ -110,6 +115,13 @@ def get_data_metrics():
     req = urllib.request.Request(url)
     if conf["header_user_agent"]:
         req.add_header("User-Agent", conf["header_user_agent"].encode())
+    if conf["headers"]:
+        # extra headers when sending requests to alertmanager in the form of
+        # key=value,key2=value2
+        headers = map(methodcaller("split", "=", 1), conf["headers"].split(","))
+        for header, header_value in headers:
+            req.add_header(header, header_value.encode())
+            log.debug(f"adding headder {header}")
     try:
         response = urllib.request.urlopen(req, timeout=conf["check_timeout"])
         alertmanager_exporter_http_code.set(response.getcode())
