@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 
-import datetime
 import base64
-import urllib.request
+import collections.abc
+import datetime
 import json
-import traceback
-import sys
-import time
 import logging
 import os
-import socket
 import prometheus_client
 import prometheus_client.core
+import re
+import socket
+import sys
+import time
+import traceback
+import urllib.request
 
 from operator import methodcaller
 
@@ -168,8 +170,18 @@ def parse_data_metrics(json_data):
         log.debug('parse_data_metrics, alert: "{}"'.format(alert))
         labels = dict()
         for key in conf["keys_to_get"]:
+            if index_key := re.search("([^[]+)\[(\d)\]", key):
+                # the 'receivers' key is an array, if the keys_to_get is 'receivers[2]' we will grab
+                # the third element from the array
+                re_key = index_key.group(1)
+                re_index = int(index_key.group(2))
+                labels[re_key] = alert[re_key][re_index]
             if key in alert:
-                labels[key] = alert[key]
+                # the 'receivers' key is an array, we will just hard code the first element
+                if isinstance(alert[key], collections.abc.Sequence):
+                    labels[key] = alert[key][0]
+                else:
+                    labels[key] = alert[key]
         for label in conf["labels_and_annotations_to_get"]:
             if label in alert["labels"]:
                 labels[label] = alert["labels"][label]
